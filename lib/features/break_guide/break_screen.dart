@@ -2,20 +2,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 class BreakScreen extends StatefulWidget {
-  const BreakScreen({super.key});
+  // 1. Agregamos el parámetro para los minutos de descanso dinámicos
+  final int breakMinutes;
+
+  // Le asignamos 5 por defecto por si se llega a llamar sin parámetros
+  const BreakScreen({
+    super.key, 
+    this.breakMinutes = 5,
+  });
 
   @override
   State<BreakScreen> createState() => _BreakScreenState();
 }
 
 class _BreakScreenState extends State<BreakScreen> {
-  // 5 minutos de descanso por defecto (5 * 60 = 300 segundos)
-  int _secondsRemaining = 300;
+  // Ya no dejamos el valor fijo de 300, lo inicializamos en el initState
+  late int _secondsRemaining;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    // 2. Convertimos los minutos de descanso dinámicos a segundos totales
+    _secondsRemaining = widget.breakMinutes * 60;
     _startTimer();
   }
 
@@ -26,7 +35,6 @@ class _BreakScreenState extends State<BreakScreen> {
           _secondsRemaining--;
         } else {
           _timer?.cancel();
-          // CORREGIDO: Se eliminó la línea de _isRunning que causaba error
           _showBreakFinishedDialog();
         }
       });
