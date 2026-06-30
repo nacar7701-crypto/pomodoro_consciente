@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart'; // 1. Importamos la librería de audio nativa
 import 'package:pomodoro_consciente/features/break_guide/break_screen.dart';
 import 'package:pomodoro_consciente/main.dart'; 
 
@@ -32,16 +33,53 @@ class _TimerScreenState extends State<TimerScreen> {
   final int _totalPomodoros = 4;
   String _selectedAmbience = 'Ninguno';
 
+  // 2. Definimos el controlador del reproductor
+  late final AudioPlayer _audioPlayer;
+
   @override
   void initState() {
     super.initState();
     _totalSeconds = widget.studyMinutes * 60;
     _secondsRemaining = _totalSeconds;
+
+    // 3. Inicializamos el reproductor y configuramos el bucle infinito
+    _audioPlayer = AudioPlayer();
+    _audioPlayer.setReleaseMode(ReleaseMode.loop);
+  }
+
+  // 4. Método reactivo para gestionar el audio ambiental
+  Future<void> _playAmbience(String ambience) async {
+    await _audioPlayer.stop(); // Detiene cualquier pista activa
+
+    // Si el temporizador está pausado o eligió "Ninguno", no reproduce nada
+    if (ambience == 'Ninguno' || !_isRunning) return;
+
+    String audioPath = '';
+    switch (ambience) {
+      case 'Lluvia':
+        audioPath = 'audio/lluvia.mp3';
+        break;
+      case 'Bosque':
+        audioPath = 'audio/bosque.mp3';
+        break;
+      case 'Café':
+        audioPath = 'audio/cafe.mp3';
+        break;
+    }
+
+    if (audioPath.isNotEmpty) {
+      // Carga y reproduce el archivo directo desde assets/audio/
+      await _audioPlayer.play(AssetSource(audioPath));
+    }
   }
 
   void _startTimer() {
     if (_isRunning) return;
     setState(() => _isRunning = true);
+    
+    // Activa la música si el usuario ya tenía un ambiente seleccionado al dar Play
+    _playAmbience(_selectedAmbience);
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_secondsRemaining > 0) {
@@ -49,6 +87,7 @@ class _TimerScreenState extends State<TimerScreen> {
         } else {
           _timer?.cancel();
           _isRunning = false;
+          _audioPlayer.stop(); // Apaga la música al terminar la sesión
           if (!_isBreak) {
             Navigator.pushReplacement(
               context,
@@ -65,6 +104,7 @@ class _TimerScreenState extends State<TimerScreen> {
   void _pauseTimer() {
     _timer?.cancel();
     setState(() => _isRunning = false);
+    _audioPlayer.pause(); // Pausa automática del audio ambiental
   }
 
   void _resetTimer() {
@@ -73,6 +113,7 @@ class _TimerScreenState extends State<TimerScreen> {
       _secondsRemaining = _isBreak ? widget.breakMinutes * 60 : widget.studyMinutes * 60;
       _isRunning = false;
     });
+    _audioPlayer.stop(); // Detiene el audio por completo al resetear
   }
 
   String _formatTime(int totalSeconds) {
@@ -92,6 +133,7 @@ class _TimerScreenState extends State<TimerScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _audioPlayer.dispose(); // 5. Liberamos el hardware de audio para evitar memory leaks
     super.dispose();
   }
 
@@ -107,7 +149,6 @@ class _TimerScreenState extends State<TimerScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         toolbarHeight: 45,
-        // 2. Agregamos el botón reactivo de cambio de tema en las acciones del AppBar
         actions: [
           ValueListenableBuilder<ThemeMode>(
             valueListenable: themeNotifier,
@@ -251,13 +292,14 @@ class _TimerScreenState extends State<TimerScreen> {
                     icon: const Icon(Icons.stop, size: 28),
                     onPressed: () {
                       _timer?.cancel();
+                      _audioPlayer.stop(); // Limpia la música al forzar salida
                       Navigator.pop(context);
                     },
                   ),
                 ],
               ),
 
-              // 6. Sección de Ambiente
+              // 6. Sección de Ambiente (Ahora completamente conectada al AudioPlayer)
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -278,6 +320,8 @@ class _TimerScreenState extends State<TimerScreen> {
                         onSelected: (bool selected) {
                           setState(() {
                             _selectedAmbience = ambience;
+                            // Ejecuta el cambio de sonido en tiempo real
+                            _playAmbience(ambience);
                           });
                         },
                       );
